@@ -1,0 +1,6 @@
+# .streamlit/config.toml
+[theme]
+base="dark"
+primaryColor="#00ff00" # Optional: gives accents a nice neon green agricultural vibe against the dark background
+backgroundColor="#0e1117"
+secondaryBackgroundColor="#262730"
