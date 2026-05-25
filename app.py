@@ -6,7 +6,7 @@ from PIL import Image
 import torch.nn.functional as F
 import pandas as pd
 
-# --- 1. Define the Custom CNN Architecture ---
+# cnn architecture
 class CustomCNN(nn.Module):
     def __init__(self, num_classes):
         super(CustomCNN, self).__init__()
@@ -33,7 +33,7 @@ class CustomCNN(nn.Module):
         x = self.conv_layers(x)
         return self.fc_layers(x)
 
-# --- 2. The Exact 15 Classes ---
+# the 15 classes from the dataset
 CLASS_NAMES = [
     "Pepper__bell___Bacterial_spot",
     "Pepper__bell___healthy",
@@ -54,13 +54,11 @@ CLASS_NAMES = [
 
 NUM_CLASSES = len(CLASS_NAMES)
 
-# --- 3. Load Both Models ---
+# loading the models
 @st.cache_resource 
 def load_cnn():
     model = CustomCNN(NUM_CLASSES)
-    # Ensure this matches your saved CNN filename!
     model.load_state_dict(torch.load('cnn_plant_disease.pth', map_location=torch.device('cpu')))
-    
     model.eval()
     return model
 
@@ -68,7 +66,6 @@ def load_cnn():
 def load_mobilenet():
     model = models.mobilenet_v2(weights=None)
     model.classifier[1] = nn.Linear(model.last_channel, NUM_CLASSES)
-    # Ensure this matches your saved MobileNet filename!
     model.load_state_dict(torch.load('mobilenetv2_plant_disease.pth', map_location=torch.device('cpu')))
     model.eval()
     return model
@@ -76,20 +73,19 @@ def load_mobilenet():
 cnn_model = load_cnn()
 mobilenet_model = load_mobilenet()
 
-# --- 4. Image Preprocessing ---
+
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# --- Helper Function for Predictions ---
 def predict(model, tensor):
     with torch.no_grad():
         outputs = model(tensor)
-        probabilities = F.softmax(outputs, dim=1)[0] * 100 # Get percentages
+        probabilities = F.softmax(outputs, dim=1)[0] * 100 # percentages
         
-    # Get top 3 predictions for the bar chart
+    # gte top 3 predictions for the bar chart
     top_prob, top_catid = torch.topk(probabilities, 3)
     
     results = {}
@@ -101,8 +97,8 @@ def predict(model, tensor):
     
     return best_class, best_conf, results
 
-# --- 5. Build the UI ---
-st.set_page_config(layout="wide") # Use the full screen width for the side-by-side comparison
+# streamlit ui stuff
+st.set_page_config(layout="wide") 
 st.title("🌿 AI Crop Disease Detection Engine")
 st.write("Compare the custom CNN against Transfer Learning (MobileNetV2).")
 
@@ -110,8 +106,6 @@ uploaded_file = st.file_uploader("Choose a leaf image...", type=["jpg", "png", "
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert('RGB')
-    
-    # Show the uploaded image and the "under the hood" tensor translation
     st.subheader("1. Image Preprocessing")
     st.image(image, caption="Original Upload", width=300)
     input_tensor = transform(image).unsqueeze(0)
@@ -119,11 +113,9 @@ if uploaded_file is not None:
     
     st.markdown("---")
     st.subheader("2. Model Inference & Comparison")
-    
-    # Create two side-by-side columns
+
     col1, col2 = st.columns(2)
     
-    # === COLUMN 1: Custom CNN ===
     with col1:
         st.header("🧠 Custom CNN")
         cnn_class, cnn_conf, cnn_results = predict(cnn_model, input_tensor)
@@ -136,14 +128,13 @@ if uploaded_file is not None:
             
         st.metric(label="Confidence", value=f"{cnn_conf:.2f}%")
         
-        # Display the bar chart
         st.write("**Top 3 Probabilities:**")
         chart_data = pd.DataFrame.from_dict(cnn_results, orient='index', columns=['Probability'])
         st.bar_chart(chart_data)
 
-    # === COLUMN 2: MobileNetV2 ===
+    # transfer learning
     with col2:
-        st.header("⚡ MobileNetV2 (Transfer)")
+        st.header("⚡ MobileNetV2 (Transfer Learning)")
         mn_class, mn_conf, mn_results = predict(mobilenet_model, input_tensor)
         
         if mn_conf > 60.0:
@@ -154,7 +145,6 @@ if uploaded_file is not None:
             
         st.metric(label="Confidence", value=f"{mn_conf:.2f}%")
         
-        # Display the bar chart
         st.write("**Top 3 Probabilities:**")
         chart_data2 = pd.DataFrame.from_dict(mn_results, orient='index', columns=['Probability'])
         st.bar_chart(chart_data2)
